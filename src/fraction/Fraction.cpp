@@ -1,9 +1,14 @@
 #include <utility>
 #include <numeric>
+#include <stdexcept>
 #include "Fraction.hpp"
 
 // Конструктор по умолчанию
-Fraction::Fraction(int num, int denom) : numerator(num), denominator(denom) {}
+Fraction::Fraction(int num, int denom) : numerator(num), denominator(denom) {
+    if(denom == 0){
+        throw std::runtime_error("Denominator can not be 0 (zero divison)");
+    }
+}
 
 // Конструктор копирования
 Fraction::Fraction(const Fraction &other) : numerator(other.numerator), denominator(other.denominator) {}
@@ -63,6 +68,10 @@ Fraction Fraction::operator*(const Fraction &other) const
 
 Fraction Fraction::operator/(const Fraction &other) const
 {
+    if(other.numerator == 0){
+        throw std::runtime_error("Divisor's numerator can't be 0 (zero divison)");
+    }
+
     return Fraction(
         this->numerator * other.denominator,
         this->denominator * other.numerator
@@ -96,6 +105,18 @@ Fraction &Fraction::operator=(Fraction &&other) noexcept
         std::swap(this->denominator, other.denominator);
     }
     return *this;
+}
+
+// Перегрузка операторов сравнения
+
+bool Fraction::operator==(const Fraction &other)
+{
+    return this->numerator == other.numerator && this->denominator == other.denominator;
+}
+
+bool Fraction::operator<(const Fraction &other)
+{
+    return false;
 }
 
 // Дружественный оператор вывода

@@ -1,4 +1,5 @@
 #include "src/fraction/Fraction.hpp"
+#include <stdexcept>
 #include <gtest/gtest.h>
 
 TEST(FractionTest, DefaultConstructor) {
@@ -49,6 +50,14 @@ TEST(FractionTest, Division) {
     Fraction result = f1 / f2;
     EXPECT_EQ(result.getNumerator(), 1 * 3);
     EXPECT_EQ(result.getDenominator(), 2 * 2);
+}
+
+TEST(FractionTest, ZeroDenominator) {
+    Fraction f1(1, 1);
+    Fraction f2(0, 1);
+    EXPECT_THROW({  
+        Fraction result = f1 / f2;
+    }, std::runtime_error);
 }
 
 int main(int argc, char **argv) {

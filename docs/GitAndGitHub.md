@@ -16,7 +16,7 @@
 Первое, что вам следует сделать после установки `git` — указать ваше имя, адрес электронной почты и имя ветки по умолчанию. Это важно, потому что каждый коммит в `git` содержит эту информацию, и она включена в коммиты, передаваемые вами, и не может быть далее изменена:
 
 ```sh
-git config --global user.name "Ivan Petrov"
+git config --global user.name "IvanPetrov"
 git config --global user.email ivan.petrov@example.com
 git config --global init.defaultBranch main
 ```

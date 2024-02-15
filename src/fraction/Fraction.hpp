@@ -41,6 +41,10 @@ public:
     Fraction& operator=(const Fraction& other);
     Fraction& operator=(Fraction&& other) noexcept;
 
+    // Перегрузка операторов сравнения
+    bool operator==(const Fraction& other);
+    bool operator<(const Fraction& other);
+
     // Дружественный оператор вывода
     friend std::ostream& operator<<(std::ostream& out, const Fraction& f);
 };
