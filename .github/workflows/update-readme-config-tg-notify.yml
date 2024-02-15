@@ -1,0 +1,74 @@
+name: Updating README.md after Telegram-notify config change
+on:
+  push:
+    paths:
+      - '.github/workflows/config-tg-notify.json'
+    branches-ignore:
+      - main
+      
+# Даннный workflow обновляет раздел с таблицой настроек Телеграмм-уведомлений в README.md.
+# Для этого он (с помощью grep) определяет позиции двух тегов (начала таблицы и её конца).
+# Использование workflow подразумевается с уже установленным правилом защиты main ветки,
+# поэтому push в файл конфигурации этих настроек в main ветке игнорируется.
+# Для того, чтобы workflow сработал правильно, обязателен PR (даже если у админов есть bypass protection rules)
+# Workflow изменяет README.md в ветке PR, которая потом уже сливается с main. Таким образом и происходит изменение.
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+    
+    steps:
+  
+      - name: Check repository template
+        id: checking-template-repository
+        run: |
+          repository=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "https://api.github.com/repos/${{ github.repository }}")
+          is_template=$(echo "$repository" | jq -r ".is_template")
+          echo "REPO_IS_TEMPLATE=$is_template" >> $GITHUB_OUTPUT
+          
+        # Checkout репозитория
+      - name: Checkout
+        if: steps.checking-template-repository.outputs.REPO_IS_TEMPLATE == 'false'
+        uses: actions/checkout@v2
+
+      - name: README.md updating
+        if: steps.checking-template-repository.outputs.REPO_IS_TEMPLATE == 'false'
+        run: |
+          git pull
+          
+          # Создание текстового файла с таблицой настроек Телеграмм-уведомлений
+          touch config_table.txt
+          echo "|                 Тип уведомления                 |                      |" >> config_table.txt
+          echo "|-------------------------------------------------|:--------------------:|" >> config_table.txt
+          
+          TG_NOTIFY_CONFIG_FILE_PATH=".github/workflows/config-tg-notify.json"
+          TRUE_ICON=":white_check_mark:"
+          FALSE_ICON=":x:"
+          
+          config_keys=$(jq -r 'keys[]' < $TG_NOTIFY_CONFIG_FILE_PATH)
+          for key in $config_keys; do
+            bool_val=$(jq -r ".[\"$key\"][\"is-active\"]" < $TG_NOTIFY_CONFIG_FILE_PATH)
+            name_val=$(jq -r ".[\"$key\"][\"str-name-rus\"]" < $TG_NOTIFY_CONFIG_FILE_PATH)
+            icon=$(if $bool_val; then echo $TRUE_ICON; else echo $FALSE_ICON; fi)
+            echo -e "|  $name_val  |  $icon  |" >> config_table.txt
+          done
+          
+          # Определение индексов строк, в которых записана таблица
+          begin_tag="<a id=repo_config pos=begin></a>"
+          end_tag="<a id=repo_config pos=end></a>"
+          
+          config_table_begin_ind=$(grep -F -n "$begin_tag" README.md | cut -d ":" -f 1)
+          config_table_end_ind=$(grep -F -n "$end_tag" README.md | cut -d ":" -f 1)
+          
+          # Удаление таблицы
+          sed -i "$((config_table_begin_ind + 1)),$((config_table_end_ind - 2))d" "README.md"
+          
+          # Вставка содержимого файла с таблицой настроек Телеграмм-уведомлений в README.md
+          sed -i "$(expr $config_table_begin_ind + 0)r config_table.txt" README.md
+          rm config_table.txt
+
+          # Запись изменений
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git commit -a -m "Обновлен раздел настроек Телеграмм-уведомлений в README.md"
+          git push origin ${{ github.ref }}

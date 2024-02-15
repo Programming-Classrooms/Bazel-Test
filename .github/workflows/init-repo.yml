@@ -1,0 +1,188 @@
+name: Repository initialization
+on:
+  push:
+    branches:
+      - main
+permissions: write-all
+
+jobs:
+  repo-determinating:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repository checkout
+        uses: actions/checkout@v2
+        
+      - name: Check repository template
+        id: checking-template-repository
+        run: |
+          repository=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "https://api.github.com/repos/${{ github.repository }}")
+          is_template=$(echo "$repository" | jq -r ".is_template")
+          echo "REPO_IS_TEMPLATE=$is_template" >> $GITHUB_OUTPUT
+          
+      - name: Checking initialization
+        id: checking-initialization
+        run: |
+          RUN_NUMBER=${{ github.run_number }}
+          echo "RUN_NUMBER = ${RUN_NUMBER}"
+          if [ "${RUN_NUMBER}" != 1 ]; then
+            echo "Not initial commit (remove this step to action trigger on all commits)"
+            echo "COMMIT_IS_INIT=false" >> $GITHUB_OUTPUT
+          else
+            echo "This commit is initial"
+            echo "COMMIT_IS_INIT=true" >> $GITHUB_OUTPUT
+          fi
+        
+    outputs:
+      repo-is-template: ${{ steps.checking-template-repository.outputs.REPO_IS_TEMPLATE }}
+      commit-is-init: ${{ steps.checking-initialization.outputs.COMMIT_IS_INIT }}
+
+
+
+  # README.md initialization job
+  init-readme:
+    needs: repo-determinating
+    if: ${{ needs.repo-determinating.outputs.repo-is-template == 'false' && needs.repo-determinating.outputs.commit-is-init == 'true' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Init README.md
+        run: |
+          # Создание текстового файла с коллабораторами
+          touch collaborators.txt
+          echo "|     №     |                   GitHub-логин                    |    Telegram-логин    |" >> collaborators.txt
+          echo "|:---------:|:-------------------------------------------------:|:--------------------:|" >>collaborators.txt
+          collaborators=($(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" "https://api.github.com/repos/${{ github.repository }}/collaborators" | jq -r '.[].login'))
+          LOGINS_FILE_PATH=".github/workflows/config-gh-tg-logins.json"
+          collaborators_num=0
+
+          for ((index=0; index<${#collaborators[@]}; index++)); do
+              collaborator="${collaborators[$index]}"
+              echo "collaborator = $collaborator"
+              GITHUB_LOGIN="$collaborator"
+              TELEGRAM_LOGIN="$(jq -r ".$collaborator" $LOGINS_FILE_PATH)"
+              echo "| $(expr $index + 1) |  **$GITHUB_LOGIN**  |  **$TELEGRAM_LOGIN** |" >> collaborators.txt
+          done          
+          cp ".github/workflows/INIT_README.md" "README.md"
+          # Вставка содержимого файла с коллабораторами в README.md
+          collabs_start_ind=$(grep -F -n "<a id=repo_collaborators pos=begin></a>" README.md | cut -d ":" -f 1)
+          if [ ${#collaborators[@]} -eq 0 ]; then
+              echo "Коллабораторов на данный момент нет" > collaborators.txt
+          fi
+          sed -i "$(expr $collabs_start_ind + 0)r collaborators.txt" README.md
+          rm collaborators.txt
+
+          # Создание текстового файла с таблицой настроек Телеграмм-уведомлений
+          touch config_table.txt
+          echo "|                 Тип уведомления                 |                      |" >> config_table.txt
+          echo "|-------------------------------------------------|:--------------------:|" >> config_table.txt
+          TG_NOTIFY_CONFIG_FILE_PATH=".github/workflows/config-tg-notify.json"
+          TRUE_ICON=":white_check_mark:"
+          FALSE_ICON=":x:"
+          config_keys=$(jq -r 'keys[]' < $TG_NOTIFY_CONFIG_FILE_PATH)
+          for key in $config_keys; do
+            bool_val=$(jq -r ".[\"$key\"][\"is-active\"]" < $TG_NOTIFY_CONFIG_FILE_PATH)
+            name_val=$(jq -r ".[\"$key\"][\"str-name-rus\"]" < $TG_NOTIFY_CONFIG_FILE_PATH)
+            icon=$(if $bool_val; then echo $TRUE_ICON; else echo $FALSE_ICON; fi)
+            echo -e "|  $name_val  |  $icon  |" >> config_table.txt
+          done
+          # Вставка содержимого файла с таблицой настроек Телеграмм-уведомлений в README.md
+          config_table_start_ind=$(grep -F -n "<a id=repo_config pos=begin></a>" README.md | cut -d ":" -f 1)
+          sed -i "$(expr $config_table_start_ind + 0)r config_table.txt" README.md
+          rm config_table.txt
+          
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git commit -a -m "Инициализирован README.md"
+
+      - name: Push changes
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+
+    # Removing initialization files job   
+  self-removing:
+    needs: [repo-determinating, init-readme]
+    if: ${{ needs.repo-determinating.outputs.repo-is-template == 'false' && needs.repo-determinating.outputs.commit-is-init == 'true' }}
+    runs-on: ubuntu-latest
+     
+    steps:
+      - name: Repository checkout
+        uses: actions/checkout@v2
+
+      - name: Self-removing commit
+        run: |
+          git pull
+          
+          rm ".github/workflows/init-repo.yml"
+          rm ".github/workflows/INIT_README.md"
+          
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git commit -a -m "Удалён инициализирующий workflow"
+
+      - name: Push changes
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+
+
+  # Main branch protection rule changing job    
+  branch-protection-rule-changing:
+    needs: [repo-determinating, init-readme, self-removing]
+    if: ${{ needs.repo-determinating.outputs.repo-is-template == 'false' && needs.repo-determinating.outputs.commit-is-init == 'true' }}
+    runs-on: ubuntu-latest
+     
+    steps:
+      - name: Repository checkout
+        uses: actions/checkout@v2
+
+      - name: Adding "Teachers" team to repository
+        run: |
+          TEAM_SLUG="teachers"
+          curl -L \
+            -X PUT \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.REPO_SETTINGS_ADMIN_CLASSIC_PAT }}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/orgs/${{ github.repository_owner }}/teams/${TEAM_SLUG}/repos/${{ github.repository }} \
+            -d '{"permission":"admin"}'
+      
+      - name: Changing main branch protection rule
+        run: |
+          curl -X PUT \
+            -H "Authorization: Bearer ${{ secrets.REPO_SETTINGS_ADMIN_CLASSIC_PAT }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/branches/main/protection \
+              -d '{
+                    "required_status_checks": {
+                        "strict": true,
+                        "contexts": []
+                    },
+                    "enforce_admins": false,
+                    "required_pull_request_reviews": {
+                        "dismissal_restrictions": {
+                            "users": [],
+                            "teams": [
+                                "teachers"
+                            ]
+                        },
+                        "dismiss_stale_reviews": false,
+                        "require_code_owner_reviews": true,
+                        "required_approving_review_count": 1,
+                        "bypass_pull_request_allowances": {
+                            "users": [],
+                            "teams": [
+                                "teachers"
+                            ]
+                        }
+                    },
+                    "restrictions": null,
+                    "required_linear_history": false,
+                    "allow_force_pushes": true,
+                    "required_conversation_resolution": true
+                  }' 

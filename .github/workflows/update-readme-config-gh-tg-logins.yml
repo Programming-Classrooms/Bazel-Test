@@ -1,0 +1,75 @@
+name: Updating README.md after GH-TG logins change
+on:
+  push:
+    paths:
+      - '.github/workflows/config-gh-tg-logins.json'
+    branches-ignore:
+      - main
+      
+# Даннный workflow обновляет раздел с таблицой коллабораторов репозитория в README.md.
+# Для этого он (с помощью grep) определяет позиции двух тегов (начала таблицы и её конца).
+# Использование workflow подразумевается с уже установленным правилом защиты main ветки,
+# поэтому push в файл конфигурации этих настроек в main ветке игнорируется.
+# Для того, чтобы workflow сработал правильно, обязателен PR (даже если у админов есть bypass protection rules)
+# Workflow изменяет README.md в ветке PR, которая потом уже сливается с main. Таким образом и происходит изменение.
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+    
+    steps:
+
+      - name: Check repository template
+        id: checking-template-repository
+        run: |
+          repository=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "https://api.github.com/repos/${{ github.repository }}")
+          is_template=$(echo "$repository" | jq -r ".is_template")
+          echo "REPO_IS_TEMPLATE=$is_template" >> $GITHUB_OUTPUT
+          
+        # Checkout репозитория
+      - name: Checkout
+        if: steps.checking-template-repository.outputs.REPO_IS_TEMPLATE == 'false'
+        uses: actions/checkout@v2
+
+      - name: README.md updating
+        if: steps.checking-template-repository.outputs.REPO_IS_TEMPLATE == 'false'
+        run: |
+          git pull
+
+          # Создание текстового файла с коллабораторами
+          touch collaborators.txt
+          echo "|     №     |                   GitHub-логин                    |    Telegram-логин    |" >> collaborators.txt
+          echo "|:---------:|:-------------------------------------------------:|:--------------------:|" >> collaborators.txt
+          
+          collaborators=($(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" "https://api.github.com/repos/${{ github.repository }}/collaborators" | jq -r '.[].login'))
+          LOGINS_FILE_PATH=".github/workflows/config-gh-tg-logins.json"
+          for ((index=0; index<${#collaborators[@]}; index++)); do
+              collaborator="${collaborators[$index]}"
+              echo "collaborator = $collaborator"
+              GITHUB_LOGIN="$collaborator"
+              TELEGRAM_LOGIN="$(jq -r ".$collaborator" $LOGINS_FILE_PATH)"
+              echo "| $(expr $index + 1) |  **$GITHUB_LOGIN**  |  **$TELEGRAM_LOGIN** |" >> collaborators.txt
+          done        
+
+          # Определение индексов строк, в которых записана таблица
+          begin_tag="<a id=repo_collaborators pos=begin></a>"
+          end_tag="<a id=repo_collaborators pos=end></a>"
+          
+          config_table_begin_ind=$(grep -F -n "$begin_tag" README.md | cut -d ":" -f 1)
+          config_table_end_ind=$(grep -F -n "$end_tag" README.md | cut -d ":" -f 1)
+          
+          # Удаление таблицы
+          sed -i "$((config_table_begin_ind + 1)),$((config_table_end_ind - 2))d" "README.md"
+          
+          # Вставка содержимого файла с коллабораторами в README.md
+          if [ ${#collaborators[@]} -eq 0 ]; then
+              echo "Коллабораторов на данный момент нет" > collaborators.txt
+          fi
+          sed -i "$(expr $config_table_begin_ind + 0)r collaborators.txt" README.md
+          rm collaborators.txt
+          
+          # Запись изменений
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git commit -a -m "Обновлен раздел коллабораторов репозитория в README.md"
+          git push origin ${{ github.ref }}

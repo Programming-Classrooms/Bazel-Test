@@ -1,0 +1,66 @@
+name: Branch Deleted
+on:
+  delete:
+    branches:
+      - '*'
+
+jobs:
+  telegram-notify:
+    runs-on: ubuntu-latest
+    if: github.event.ref_type == 'branch'
+    steps:
+
+        # Скачивание репозитория (для получения файла конфигурации тг-оповещений)
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+        # Получение имени репозитория
+      - name: Get repo name
+        run: echo "REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)" >> $GITHUB_ENV
+
+
+        # Получение имени веток + формирование ссылок на них
+      - name: Get branches names
+        id: get-branches-names
+        run: |
+          BASE_BRANCH_NAME=$(basename "$GITHUB_REF")
+          echo "BASE_BRANCH_NAME=$BASE_BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "BASE_BRANCH_LINK=https://github.com/${{ github.repository }}/tree/$BASE_BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "DELETED_BRANCH_NAME=${{ github.event.ref }}" >> $GITHUB_OUTPUT
+
+
+       # Получение настроек из файла конфигурации Телеграмм-оповещений
+      - name: Get telegram notify config
+        id: get-tg-config
+        run: |
+          CONFIG_FILE_PATH=".github/workflows/config-tg-notify.json"
+          echo -e "BRANCH_DELETED_CONFIG=$(jq -r '.["branch-deleted"]["is-active"]' $CONFIG_FILE_PATH)" >> $GITHUB_OUTPUT
+
+
+       # Получение Телеграмм логинов из .json файла
+      - name: Get GitHub->Teleram logins config
+        id: get-gh-tg-logins-config
+        run: |
+          CONFIG_FILE_PATH=".github/workflows/config-gh-tg-logins.json"
+          echo -e "ACTOR_TG_LOGIN=$(jq -r '.${{ github.actor }}' $CONFIG_FILE_PATH)" >> $GITHUB_OUTPUT
+
+
+        # Ветка удалена, оповещение в Телеграмм
+      - name: Branch deleted TG notify
+        if: steps.get-tg-config.outputs.BRANCH_DELETED_CONFIG == 'true'
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_PROGRAMMINGBOT_TO }}
+          token: ${{ secrets.TELEGRAM_PROGRAMMINGBOT_TOKEN }}
+          format: markdown
+          message: | #https://help.github.com/en/actions/reference/contexts-and-expression-syntax-for-github-actions#github-context
+            @${{ steps.get-gh-tg-logins-config.outputs.ACTOR_TG_LOGIN }} *удалил ветку!* 🗑️
+            
+            💻 *Проект:*  ${{ env.REPO_NAME }}
+
+            🌱 *Удалённая ветка:* ${{ steps.get-branches-names.outputs.DELETED_BRANCH_NAME }}
+
+            🌳 *Базовая ветка:*  [${{ steps.get-branches-names.outputs.BASE_BRANCH_NAME }}](${{ steps.get-branches-names.outputs.BASE_BRANCH_LINK }})

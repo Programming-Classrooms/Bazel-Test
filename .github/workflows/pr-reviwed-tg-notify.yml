@@ -1,0 +1,139 @@
+on:
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  telegram-notify:
+    runs-on: ubuntu-latest
+    steps:
+
+        # Скачивание репозитория (для получения файла конфигурации тг-оповещений)
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+        # Получение типа ревью (approved, commented, changes_requested)
+      - name: Check review status
+        id: check-review-status
+        run: echo "REVIEW_STATUS=${{ github.event.review.state }}" >> $GITHUB_OUTPUT
+
+
+        # Получение имени репозитория
+      - name: Get repository name
+        run: |
+          echo "REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)" >> $GITHUB_ENV
+
+
+        # Получение имён веток + формирование ссылок на них
+      - name: Get branches names
+        id: get-branches-names
+        run: |
+          echo "BASE_BRANCH_NAME=${{ github.event.pull_request.base.ref }}" >> $GITHUB_OUTPUT
+          echo "HEAD_BRANCH_NAME=${{ github.event.pull_request.head.ref }}" >> $GITHUB_OUTPUT
+          echo "BASE_BRANCH_LINK=https://github.com/${{ github.repository }}/tree/${{ github.event.pull_request.base.ref }}" >> $GITHUB_OUTPUT
+          echo "HEAD_BRANCH_LINK=https://github.com/${{ github.repository }}/tree/${{ github.event.pull_request.head.ref }}" >> $GITHUB_OUTPUT
+
+
+        # Формирование комментария ревью (в случае пустого комментария, поле "Коммент" будет отсутствовать)
+      - name: Get review body
+        id: get-review-body
+        env:
+          COMMENT: ${{ github.event.review.body }}
+        run: |
+          if [[ -n "$COMMENT" ]]; then
+            REVIEW_BODY="\n💬 *Коммент:* $COMMENT \n"
+
+            echo "REVIEW_BODY<<EOF" >> $GITHUB_ENV
+            echo -e $REVIEW_BODY >> $GITHUB_ENV
+            echo "EOF" >> $GITHUB_ENV
+          else
+            echo "REVIEW_BODY=" >> $GITHUB_ENV
+          fi
+
+        # Получение настроек из .json файла конфигурации Телеграмм-оповещений
+      - name: Get telegram notify config
+        id: get-tg-config
+        run: |
+          CONFIG_FILE_PATH=".github/workflows/config-tg-notify.json"
+          echo -e "PR_REVIEW_APPROVED_CONFIG=$(jq -r '.["pr-review-approved"]["is-active"]' $CONFIG_FILE_PATH)" >> $GITHUB_OUTPUT
+          echo -e "PR_REVIEW_COMMENTED_CONFIG=$(jq -r '.["pr-review-commented"]["is-active"]' $CONFIG_FILE_PATH)" >> $GITHUB_OUTPUT
+          echo -e "PR_REVIEW_CHANGES_REQUESTED_CONFIG=$(jq -r '.["pr-review-changes-requested"]["is-active"]' $CONFIG_FILE_PATH)" >> $GITHUB_OUTPUT
+
+
+        # Получение Телеграмм логинов из .json файла
+      - name: Get GitHub->Teleram logins config
+        id: get-gh-tg-logins-config
+        run: |
+          CONFIG_FILE_PATH=".github/workflows/config-gh-tg-logins.json"
+          echo -e "ACTOR_TG_LOGIN=$(jq -r '.${{ github.actor }}' $CONFIG_FILE_PATH)" >> $GITHUB_OUTPUT
+          echo -e "REVIEWER_TG_LOGIN=$(jq -r '.${{ github.event.review.user.login }}' $CONFIG_FILE_PATH)" >> $GITHUB_OUTPUT
+          echo -e "PR_AUTHOR_TG_LOGIN=$(jq -r '.${{ github.event.pull_request.user.login }}' $CONFIG_FILE_PATH)" >> $GITHUB_OUTPUT
+          
+
+        # ПР одобрен, оповещение в Телеграмм
+      - name: PR approved telegram notify
+        if: steps.check-review-status.outputs.REVIEW_STATUS == 'approved' && steps.get-tg-config.outputs.PR_REVIEW_APPROVED_CONFIG == 'true'
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_PROGRAMMINGBOT_TO }}
+          token: ${{ secrets.TELEGRAM_PROGRAMMINGBOT_TOKEN }}
+          format: markdown
+          message: | #https://help.github.com/en/actions/reference/contexts-and-expression-syntax-for-github-actions#github-context
+            @${{ steps.get-gh-tg-logins-config.outputs.PR_AUTHOR_TG_LOGIN }}, *твой Pull Request одобрен! Можешь слить ветки!* 🎉
+            
+            💻 *Проект:*  ${{ env.REPO_NAME }}
+
+            🏷️ *Имя PR:* ${{ github.event.pull_request.title }}
+            
+            🌿 *Ветки:*  [${{ steps.get-branches-names.outputs.BASE_BRANCH_NAME }}](${{ steps.get-branches-names.outputs.BASE_BRANCH_LINK }}) <-- [${{ steps.get-branches-names.outputs.HEAD_BRANCH_NAME }}](${{ steps.get-branches-names.outputs.HEAD_BRANCH_LINK }})
+            
+            ✅ *Ревьюер:*  @${{ steps.get-gh-tg-logins-config.outputs.REVIEWER_TG_LOGIN }}
+            ${{ env.REVIEW_BODY }}
+            🔗 *Ссылка:*  [тыксюда](${{ github.event.pull_request.html_url }}) 
+
+
+        # PR прокомментирован, оповещение в Телеграмм
+        # (проверки на пустой комментарий не выполняется, т.к. GitHub не даст отправить такое ревью с пустым комментом)
+      - name: PR commented telegram notify
+        if: steps.check-review-status.outputs.REVIEW_STATUS == 'commented' && steps.get-tg-config.outputs.PR_REVIEW_COMMENTED_CONFIG == 'true'
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_PROGRAMMINGBOT_TO }}
+          token: ${{ secrets.TELEGRAM_PROGRAMMINGBOT_TOKEN }}
+          format: markdown
+          message: | #https://help.github.com/en/actions/reference/contexts-and-expression-syntax-for-github-actions#github-context
+            @${{ steps.get-gh-tg-logins-config.outputs.PR_AUTHOR_TG_LOGIN }}, *твой Pull Request прокомментирован!* 📝
+            
+            💻 *Проект:*  ${{ env.REPO_NAME }}
+
+            🏷️ *Имя PR:* ${{ github.event.pull_request.title }}
+            
+            🌿 *Ветки:*  [${{ steps.get-branches-names.outputs.BASE_BRANCH_NAME }}](${{ steps.get-branches-names.outputs.BASE_BRANCH_LINK }}) <-- [${{ steps.get-branches-names.outputs.HEAD_BRANCH_NAME }}](${{ steps.get-branches-names.outputs.HEAD_BRANCH_LINK }})
+            
+            ❎ *Ревьюер:*  @${{ steps.get-gh-tg-logins-config.outputs.REVIEWER_TG_LOGIN }}
+            ${{ env.REVIEW_BODY }}
+            🔗 *Ссылка:*  [тыксюда](${{ github.event.pull_request.html_url }}) 
+
+
+        # В ПР запрошены изменения, оповещение в Телеграмм
+      - name: PR changes requested telegram notify
+        if: steps.check-review-status.outputs.REVIEW_STATUS == 'changes_requested' && steps.get-tg-config.outputs.PR_REVIEW_CHANGES_REQUESTED_CONFIG == 'true'
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_PROGRAMMINGBOT_TO }}
+          token: ${{ secrets.TELEGRAM_PROGRAMMINGBOT_TOKEN }}
+          format: markdown
+          message: | #https://help.github.com/en/actions/reference/contexts-and-expression-syntax-for-github-actions#github-context
+            @${{ steps.get-gh-tg-logins-config.outputs.PR_AUTHOR_TG_LOGIN }}, *в твоём Pull Request требуются изменения* ☝️
+            
+            💻 *Проект:*  ${{ env.REPO_NAME }}
+
+            🏷️ *Имя PR:* ${{ github.event.pull_request.title }}
+            
+            🌿 *Ветки:*  [${{ steps.get-branches-names.outputs.BASE_BRANCH_NAME }}](${{ steps.get-branches-names.outputs.BASE_BRANCH_LINK }}) <-- [${{ steps.get-branches-names.outputs.HEAD_BRANCH_NAME }}](${{ steps.get-branches-names.outputs.HEAD_BRANCH_LINK }})
+            
+            ❎ *Ревьюер:*  @${{ steps.get-gh-tg-logins-config.outputs.REVIEWER_TG_LOGIN }}
+            ${{ env.REVIEW_BODY }}
+            🔗 *Ссылка:*  [тыксюда](${{ github.event.pull_request.html_url }}) 

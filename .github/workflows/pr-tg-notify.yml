@@ -1,0 +1,266 @@
+name: Notify Telegram chat
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - closed
+      - reopened
+    branches:
+      - main
+
+jobs:
+  telegram-notify:
+    runs-on: ubuntu-latest
+    
+    steps:
+
+        # Скачивание репозитория (для получения коммитов ПР)
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+
+        # Получение коммитов ПР  
+      - name: Get commits
+        id: get-commits
+        run: |
+          commit_count=${{ github.event.pull_request.commits }}
+          echo "Number of commits: $commit_count"
+          
+          echo "REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)" >> $GITHUB_ENV
+          echo "COMMITS<<EOF" >> $GITHUB_ENV
+          echo "$(git log origin/${{ github.head_ref }} --not origin/${{ github.base_ref }} --oneline --pretty=format:"%B" | grep -v '^$' | tac | nl -w 1 -s ' ' | sed 's/^/*/; s/ /.* /')" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+
+        # Получение имён веток + формирование ссылок на них
+      - name: Get branches names
+        id: get-branches-names
+        run: |
+          echo "BASE_BRANCH_NAME=${{ github.base_ref }}" >> $GITHUB_OUTPUT
+          echo "HEAD_BRANCH_NAME=${{ github.head_ref }}" >> $GITHUB_OUTPUT
+          echo "BASE_BRANCH_LINK=https://github.com/${{ github.repository }}/tree/${{ github.base_ref }}" >> $GITHUB_OUTPUT
+          echo "HEAD_BRANCH_LINK=https://github.com/${{ github.repository }}/tree/${{ github.head_ref }}" >> $GITHUB_OUTPUT
+
+
+        # Получение типа ПР (opened, synchronize, closed, reopened)
+      - name: Get PR type
+        id: get-pr-type
+        run: |
+          echo "PR_TYPE=${{ github.event.action }}" >> $GITHUB_OUTPUT
+
+
+        # Получение настроек из файла конфигурации Телеграмм-оповещений
+      - name: Get telegram notify config
+        id: get-tg-config
+        run: |
+          CONFIG_FILE_PATH=".github/workflows/config-tg-notify.json"
+          echo -e "PR_OPENED_CONFIG=$(jq -r '.["pr-opened"]["is-active"]' $CONFIG_FILE_PATH)" >> $GITHUB_OUTPUT
+          echo -e "PR_SYNCHRONIZE_CONFIG=$(jq -r '.["pr-synchronize"]["is-active"]' $CONFIG_FILE_PATH)" >> $GITHUB_OUTPUT
+          
+          echo -e "PR_CLOSED_MERGED_TRUE_CONFIG=$(jq -r '.["pr-closed-merged-true"]["is-active"]' $CONFIG_FILE_PATH)" >> $GITHUB_OUTPUT
+          echo -e "PR_SELF_CLOSED_MERGED_TRUE_CONFIG=$(jq -r '.["pr-self-closed-merged-true"]["is-active"]' $CONFIG_FILE_PATH)" >> $GITHUB_OUTPUT
+          
+          echo -e "PR_CLOSED_MERGED_FALSE_CONFIG=$(jq -r '.["pr-closed-merged-false"]["is-active"]' $CONFIG_FILE_PATH)" >> $GITHUB_OUTPUT
+          echo -e "PR_SELF_CLOSED_MERGED_FALSE_CONFIG=$(jq -r '.["pr-self-closed-merged-false"]["is-active"]' $CONFIG_FILE_PATH)" >> $GITHUB_OUTPUT
+          
+          echo -e "PR_REOPENED_CONFIG=$(jq -r '.["pr-reopened"]["is-active"]' $CONFIG_FILE_PATH)" >> $GITHUB_OUTPUT
+          echo -e "PR_SELF_REOPENED_CONFIG=$(jq -r '.["pr-self-reopened"]["is-active"]' $CONFIG_FILE_PATH)" >> $GITHUB_OUTPUT
+
+
+      - name: Get GitHub->Teleram logins config
+        id: get-gh-tg-logins-config
+        run: |
+          CONFIG_FILE_PATH=".github/workflows/config-gh-tg-logins.json"
+          echo -e "ACTOR_TG_LOGIN=$(jq -r '.${{ github.actor }}' $CONFIG_FILE_PATH)" >> $GITHUB_OUTPUT
+          echo -e "PR_AUTHOR_TG_LOGIN=$(jq -r '.${{ github.event.pull_request.user.login }}' $CONFIG_FILE_PATH)" >> $GITHUB_OUTPUT
+          if [[ "${{ steps.get-pr-type.outputs.PR_TYPE }}" == "closed" && "${{ github.event.pull_request.merged }}" == "true" ]]; then
+            echo -e "MERGE_AUTHOR_TG_LOGIN=$(jq -r '.${{ github.event.pull_request.merged_by.login }}' $CONFIG_FILE_PATH)" >> $GITHUB_OUTPUT
+          fi
+
+        # ПР открыт, опвовещение в Телеграмм  
+      - name: PR opened TG notify
+        if: steps.get-pr-type.outputs.PR_TYPE == 'opened' && steps.get-tg-config.outputs.PR_OPENED_CONFIG == 'true'
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_PROGRAMMINGBOT_TO }}
+          token: ${{ secrets.TELEGRAM_PROGRAMMINGBOT_TOKEN }}
+          format: markdown
+          message: | #https://help.github.com/en/actions/reference/contexts-and-expression-syntax-for-github-actions#github-context
+            @${{ steps.get-gh-tg-logins-config.outputs.ACTOR_TG_LOGIN }} *cделал Pull Request!* 🚀
+            
+            💻 *Проект:*  ${{ env.REPO_NAME }}
+
+            🏷️ *Имя PR:* ${{ github.event.pull_request.title }}
+            
+            🌿 *Ветки:*  [${{ steps.get-branches-names.outputs.BASE_BRANCH_NAME }}](${{ steps.get-branches-names.outputs.BASE_BRANCH_LINK }}) <-- [${{ steps.get-branches-names.outputs.HEAD_BRANCH_NAME }}](${{ steps.get-branches-names.outputs.HEAD_BRANCH_LINK }})
+            
+            📌 *Коммиты:* 
+            ${{ env.COMMITS }}
+            
+            🔗 *Ссылка:*  [тыксюда](${{ github.event.pull_request.html_url }}) 
+
+        # ПР обновлён, оповещение в Телеграмм
+      - name: PR synchronized TG notify
+        if: steps.get-pr-type.outputs.PR_TYPE == 'synchronize' && steps.get-tg-config.outputs.PR_SYNCHRONIZE_CONFIG == 'true'
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_PROGRAMMINGBOT_TO }}
+          token: ${{ secrets.TELEGRAM_PROGRAMMINGBOT_TOKEN }}
+          format: markdown 
+          message: | #https://help.github.com/en/actions/reference/contexts-and-expression-syntax-for-github-actions#github-context
+            @${{ steps.get-gh-tg-logins-config.outputs.ACTOR_TG_LOGIN }} *добавил изменения в Pull Request!* 🛠️
+            
+            💻 *Проект:*  ${{ env.REPO_NAME }}
+
+            🏷️ *Имя PR:* ${{ github.event.pull_request.title }}
+             
+            🌿 *Ветки:*  [${{ steps.get-branches-names.outputs.BASE_BRANCH_NAME }}](${{ steps.get-branches-names.outputs.BASE_BRANCH_LINK }}) <-- [${{ steps.get-branches-names.outputs.HEAD_BRANCH_NAME }}](${{ steps.get-branches-names.outputs.HEAD_BRANCH_LINK }})
+             
+            📌 *Коммиты:*  
+            ${{ env.COMMITS }}
+              
+            🔗 *Ссылка:*  [тыксюда](${{ github.event.pull_request.html_url }}) 
+
+
+        # Получение коммитов в случае, если ветки ПР слиты
+      - name: Get commits if merged
+        if: steps.get-pr-type.outputs.PR_TYPE == 'closed' && github.event.pull_request.merged == true && steps.get-tg-config.outputs.PR_CLOSED_MERGED_TRUE_CONFIG == 'true'
+        id: get-commits-if-merged
+        run: |
+          echo "COMMITS_IF_MERGED<<EOF" >> $GITHUB_ENV
+          echo "$(git log ${{ github.event.pull_request.merge_commit_sha }} --not origin/${{ github.base_ref }}~1 --oneline --pretty=format:"%B" | grep -v '^$' | tac | head -n -2 | nl -w 1 -s ' ' | sed 's/^/*/; s/ /.* /')" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+
+        # ПР закрыт НЕ автором этого ПР, ветки слиты, оповещение в Телеграмм
+      - name: PR merged TG notify
+        if: steps.get-pr-type.outputs.PR_TYPE == 'closed' && github.event.pull_request.merged == true && github.event.pull_request.user.login != github.actor && steps.get-tg-config.outputs.PR_CLOSED_MERGED_TRUE_CONFIG == 'true'
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_PROGRAMMINGBOT_TO }}
+          token: ${{ secrets.TELEGRAM_PROGRAMMINGBOT_TOKEN }}
+          format: markdown
+          message: | #https://help.github.com/en/actions/reference/contexts-and-expression-syntax-for-github-actions#github-context
+            @${{ steps.get-gh-tg-logins-config.outputs.MERGE_AUTHOR_TG_LOGIN }} *вмержил Pull Request!* 🎯
+            
+            💻 *Проект:*  ${{ env.REPO_NAME }}
+
+            🏷️ *Имя PR:* ${{ github.event.pull_request.title }}
+            
+            🌿 *Ветки:*  [${{ steps.get-branches-names.outputs.BASE_BRANCH_NAME }}](${{ steps.get-branches-names.outputs.BASE_BRANCH_LINK }}) <-- [${{ steps.get-branches-names.outputs.HEAD_BRANCH_NAME }}](${{ steps.get-branches-names.outputs.HEAD_BRANCH_LINK }})
+            
+            📌 *Коммиты:* 
+            ${{ env.COMMITS_IF_MERGED }}
+            
+            🔗 *Ссылка:*  [тыксюда](${{ github.event.pull_request.html_url }}) 
+
+
+       # ПР закрыт САМИМ автором этого ПР, ветки слиты, оповещение в Телеграмм
+      - name: PR merged TG notify
+        if: steps.get-pr-type.outputs.PR_TYPE == 'closed' && github.event.pull_request.merged == true && github.event.pull_request.user.login == github.actor && steps.get-tg-config.outputs.PR_SELF_CLOSED_MERGED_TRUE_CONFIG == 'true'
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_PROGRAMMINGBOT_TO }}
+          token: ${{ secrets.TELEGRAM_PROGRAMMINGBOT_TOKEN }}
+          format: markdown
+          message: | #https://help.github.com/en/actions/reference/contexts-and-expression-syntax-for-github-actions#github-context
+            @${{ steps.get-gh-tg-logins-config.outputs.MERGE_AUTHOR_TG_LOGIN }} *вмержил свой Pull Request!* 🎯
+            
+            💻 *Проект:*  ${{ env.REPO_NAME }}
+
+            🏷️ *Имя PR:* ${{ github.event.pull_request.title }}
+            
+            🌿 *Ветки:*  [${{ steps.get-branches-names.outputs.BASE_BRANCH_NAME }}](${{ steps.get-branches-names.outputs.BASE_BRANCH_LINK }}) <-- [${{ steps.get-branches-names.outputs.HEAD_BRANCH_NAME }}](${{ steps.get-branches-names.outputs.HEAD_BRANCH_LINK }})
+            
+            📌 *Коммиты:* 
+            ${{ env.COMMITS_IF_MERGED }}
+            
+            🔗 *Ссылка:*  [тыксюда](${{ github.event.pull_request.html_url }}) 
+
+
+        # ПР закрыт НЕ автором этого ПР, ветки НЕ слиты, оповещение в Телеграмм
+      - name: PR declined TG notify
+        if: steps.get-pr-type.outputs.PR_TYPE == 'closed' && github.event.pull_request.merged == false && github.event.pull_request.user.login != github.actor && steps.get-tg-config.outputs.PR_CLOSED_MERGED_FALSE_CONFIG == 'true'
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_PROGRAMMINGBOT_TO }}
+          token: ${{ secrets.TELEGRAM_PROGRAMMINGBOT_TOKEN }}
+          format: markdown
+          message: | #https://help.github.com/en/actions/reference/contexts-and-expression-syntax-for-github-actions#github-context
+            @${{ steps.get-gh-tg-logins-config.outputs.PR_AUTHOR_TG_LOGIN }}, *твой Pull Request закрыт без слияния веток* 🚫
+            
+            💻 *Проект:*  ${{ env.REPO_NAME }}
+
+            🏷️ *Имя PR:* ${{ github.event.pull_request.title }}
+            
+            🌿 *Ветки:*  [${{ steps.get-branches-names.outputs.BASE_BRANCH_NAME }}](${{ steps.get-branches-names.outputs.BASE_BRANCH_LINK }}) <-- [${{ steps.get-branches-names.outputs.HEAD_BRANCH_NAME }}](${{ steps.get-branches-names.outputs.HEAD_BRANCH_LINK }})
+
+            🔒 *Закрыл:* @${{ steps.get-gh-tg-logins-config.outputs.ACTOR_TG_LOGIN }}
+            
+            🔗 *Ссылка:*  [тыксюда](${{ github.event.pull_request.html_url }}) 
+
+
+      # ПР закрыт САМИМ автором этого ПР, ветки НЕ слиты, оповещение в Телеграмм
+      - name: PR declined TG notify
+        if: steps.get-pr-type.outputs.PR_TYPE == 'closed' && github.event.pull_request.merged == false && github.event.pull_request.user.login == github.actor && steps.get-tg-config.outputs.PR_SELF_CLOSED_MERGED_FALSE_CONFIG == 'true'
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_PROGRAMMINGBOT_TO }}
+          token: ${{ secrets.TELEGRAM_PROGRAMMINGBOT_TOKEN }}
+          format: markdown
+          message: | #https://help.github.com/en/actions/reference/contexts-and-expression-syntax-for-github-actions#github-context
+            @${{ steps.get-gh-tg-logins-config.outputs.PR_AUTHOR_TG_LOGIN }}, *закрыл свой Pull Request без слияния веток* 🚫
+            
+            💻 *Проект:*  ${{ env.REPO_NAME }}
+
+            🏷️ *Имя PR:* ${{ github.event.pull_request.title }}
+            
+            🌿 *Ветки:*  [${{ steps.get-branches-names.outputs.BASE_BRANCH_NAME }}](${{ steps.get-branches-names.outputs.BASE_BRANCH_LINK }}) <-- [${{ steps.get-branches-names.outputs.HEAD_BRANCH_NAME }}](${{ steps.get-branches-names.outputs.HEAD_BRANCH_LINK }})
+            
+            🔗 *Ссылка:*  [тыксюда](${{ github.event.pull_request.html_url }}) 
+
+
+        # ПР переоткрыт НЕ автором этого ПР, оповещение в Телеграмм
+      - name: PR reopened TG notify
+        if: steps.get-pr-type.outputs.PR_TYPE == 'reopened' && github.event.pull_request.user.login != github.actor && steps.get-tg-config.outputs.PR_REOPENED_CONFIG == 'true'
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_PROGRAMMINGBOT_TO }}
+          token: ${{ secrets.TELEGRAM_PROGRAMMINGBOT_TOKEN }}
+          format: markdown
+          message: | #https://help.github.com/en/actions/reference/contexts-and-expression-syntax-for-github-actions#github-context
+            @${{ steps.get-gh-tg-logins-config.outputs.PR_AUTHOR_TG_LOGIN }}, *твой Pull Request снова открыт!* 🕊️
+            
+            💻 *Проект:*  ${{ env.REPO_NAME }}
+
+            🏷️ *Имя PR:* ${{ github.event.pull_request.title }}
+            
+            🌿 *Ветки:*  [${{ steps.get-branches-names.outputs.BASE_BRANCH_NAME }}](${{ steps.get-branches-names.outputs.BASE_BRANCH_LINK }}) <-- [${{ steps.get-branches-names.outputs.HEAD_BRANCH_NAME }}](${{ steps.get-branches-names.outputs.HEAD_BRANCH_LINK }})
+
+            🔓 *Открыл:* @${{ steps.get-gh-tg-logins-config.outputs.ACTOR_TG_LOGIN }}
+            
+            🔗 *Ссылка:*  [тыксюда](${{ github.event.pull_request.html_url }})
+
+
+        # ПР переоткрыт САМИМ автором этого ПР, оповещение в Телеграмм
+      - name: PR reopened TG notify
+        if: steps.get-pr-type.outputs.PR_TYPE == 'reopened' && github.event.pull_request.user.login == github.actor && steps.get-tg-config.outputs.PR_SELF_REOPENED_CONFIG == 'true'
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_PROGRAMMINGBOT_TO }}
+          token: ${{ secrets.TELEGRAM_PROGRAMMINGBOT_TOKEN }}
+          format: markdown
+          message: | #https://help.github.com/en/actions/reference/contexts-and-expression-syntax-for-github-actions#github-context
+            @${{ steps.get-gh-tg-logins-config.outputs.PR_AUTHOR_TG_LOGIN }}, *снова открыл свой Pull Request!* 🕊️
+            
+            💻 *Проект:*  ${{ env.REPO_NAME }}
+
+            🏷️ *Имя PR:* ${{ github.event.pull_request.title }}
+            
+            🌿 *Ветки:*  [${{ steps.get-branches-names.outputs.BASE_BRANCH_NAME }}](${{ steps.get-branches-names.outputs.BASE_BRANCH_LINK }}) <-- [${{ steps.get-branches-names.outputs.HEAD_BRANCH_NAME }}](${{ steps.get-branches-names.outputs.HEAD_BRANCH_LINK }})
+            
+            🔗 *Ссылка:*  [тыксюда](${{ github.event.pull_request.html_url }})
