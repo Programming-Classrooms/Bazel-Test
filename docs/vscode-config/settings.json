@@ -5,7 +5,7 @@
     "editor.insertSpaces": true,
     "editor.formatOnSave": false,
 
-    "workbench.colorTheme": "Default Dark Modern",
+    "workbench.colorTheme": "Default Dark+",
     "workbench.iconTheme": "vscode-icons",
     "editor.fontFamily": "Consolas",
     "editor.fontSize": 15,
@@ -18,5 +18,11 @@
 
     "files.autoSave": "onFocusChange",
 
-    "C_Cpp.default.cppStandard": "c++20"
+    "C_Cpp.default.cppStandard": "c++20",
+
+    "files.exclude": {
+        "**/.git": true,
+        "**/.github": true,
+        "**/.DS_Store": true
+    }
 }

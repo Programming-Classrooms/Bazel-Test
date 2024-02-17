@@ -50,13 +50,11 @@ sudo apt update && sudo apt install bazel
 
 Для надёжности можно обновить и остальные системные пакеты следующей командой
 
-*(этот шаг можно пропустить)*
+*(этот шаг можно пропустить, может потребоваться немалое кол-во свободного места на диске. Перед тем, как ввести **'y'** внимательно прочитайте какие пакеты будут обновлены и сколько свободного места займёт обновление)*
 
 ```sh
 sudo apt update && sudo apt full-upgrade
 ```
-
-**WARN:** Учтите, что может потребоваться немалое кол-во свободного места на диске. Перед тем, как ввести **'y'** вниммательно прочитайте какие пакеты будут обновлены и сколько свободного места займёт обновление
 
 Для проверки успешности установки пропишите стандартную команду
 
@@ -78,11 +76,13 @@ bazel --version
 # See MODULE.bazel for external dependencies setup.
 ```
 
+*(P.S. первая строка, начинающаяся с "##" показывает о каком файле идёт речь, её не нужно воспринимать как содержимое файла)*
+
  Подробнее о миграции с **WORKSPACE** на **Bzlmod**: [Bzlmod Migration Guide](https://bazel.build/external/migration).
 
 ### .bazelrc
 
-Ещё одним ключевым файлом в Bazel-проекте является **.bazelrc** (помещается в корневой директории), в котором записываются основные настройки сборки проекта. Там прописываются используемые при сборке компиляторы, стандарты языка, некоторые настройки обработчика ошибок, настройки разных пользовательских типов сборок (да, он и такое умеет). 
+Ещё одним ключевым файлом в Bazel-проекте является **.bazelrc** (помещается в корневой директории). Там прописываются используемые при сборке компиляторы, стандарты языка, некоторые настройки обработчика ошибок, настройки разных пользовательских типов сборок (да, он и такое умеет). 
 
 Так вот для перехода на ранее упомянутый **bzlmod** необходимо в **.bazelrc**  прописать:
 
@@ -164,7 +164,7 @@ cc_library(
 )
 ```
 
-Теперь опишем модуль `main`:
+Теперь опишем модуль `main`. Назовём его "**cpp_app**":
 
 ```sh
 ## src/main/BUILD
@@ -178,7 +178,7 @@ cc_binary(
 )
 ```
 
-Для модуля `tests` укажем в его **BUILD** файле, что это модуль с **тестами**, который использует внешнюю библиотеку `googletest` и внутренний модуль `fraction`:
+Для модуля `tests` укажем в его **BUILD** файле, что это модуль с **тестами**, который использует внешний модуль `googletest` и внутренний модуль `fraction`:
 
 ```sh
 ## src/tests/BUILD
@@ -247,13 +247,197 @@ bazel test //src/tests:all
 
 Подробнее о командах **Bazel** и их параметрах можно узнать здесь: [Command-Line Reference](https://bazel.build/reference/command-line-reference)
 
-==== TODO ===
-
 ### Анализ покрытия кода тестами с `bazel coverage`
 
+=== TODO: разобраться с ошибкой пустого файла с результатами ===
 
 
 ## 4. Настройка VS Code под Bazel проект
 
+**Visual Studio Code** (VS Code, VSC) - крайне гибкая, легкая, кроссплатформенная, бесплатная IDE. При помощи своего открытого каталога расширений и возможности вручную настраивать разные сценарии выполнения сборки, тестирования, анализа кода она позволяет сконфигурировать среду под проект на любом языке и платформе. Поэтому конфигурировать наш проект мы будем именно на **VS Code**. 
 
-=========== TODO: Добавить инфу ===========
+Скачать последнюю версию **VS Code** можно здесь: [vscode-download](https://code.visualstudio.com/download). После установки, запустите **VSC** и откройте папку с **Bazel-проектом**. 
+
+### Интеграция с Git
+
+В VSC из коробки есть поддержка `git`, поэтому сразу инициализируйте там `git`-репозиторий и свяжите его с удалённым, если это нужно (подробнее в туториале **GitAndGitHub.md**). Шаблон **.gitignore** для Bazel-проекта вы можете найти в шаблонном репозитории организации. 
+
+### Установка расширений
+
+Для начала необходимо установить расширения. Сделать это можно при помощи графического интерфейса раздела **Extensions** *(Ctrl + Shift + X)* или командами при помощи **VS Code Quick Open** строки *(Ctrl + P)*. Будем использовать последний способ:
+
+- **C/C++**: `ext install ms-vscode.cpptools`
+- **Bazel**: `ext install BazelBuild.vscode-bazel`
+- **vscode-icons**: `ext install vscode-icons-team.vscode-icons`
+
+После того, как расширения установлены, можно приступать к настройке самого проекта. В **VSC** для хранения файлов с настройками проекта используется директория **.vscode** (должна находиться в корневой директории), поэтому создайте её, если ещё этого не сделали. Как правило, файлы с настройками имею **.json** расширение.
+
+Начнём с файла настроек **C/C++**:
+
+### c_cpp_properties.json
+
+```json
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                /*   "/**" - means recursive search     */
+                "${workspaceFolder}/bazel-bin/**",
+                "${workspaceFolder}/bazel-out/**",
+                "${workspaceFolder}/bazel-${workspaceFolderBasename}/**"
+            ],
+            "intelliSenseMode": "${default}",
+            "cppStandard": "c++20"
+        }
+    ],
+    "version": 4
+}
+```
+
+Здесь в поле **"includePath"** указывается список директорий, в которых **IntelliSense** будет искать остальные файлы C/C++ кода. Назначение остальных полей очевидно.
+
+*(**IntelliSense** - это система, которая предоставляет **контекстно-зависимые подсказки**, **автозаполнение кода**, а также **предварительный просмотр** и **анализ возможных вариантов завершения кода**)*
+
+Подробнее о **c_cpp_properties.json** здесь: [c-cpp-properties-json](https://code.visualstudio.com/docs/cpp/c-cpp-properties-schema-reference)
+
+
+### tasks.json
+
+**tasks.json** используется для настройки и управления задачами в вашем рабочем пространстве. Задачи в **VSC** — это операции, которые могут быть автоматизированы для упрощения разработки, такие как сборка проекта, запуск скриптов, или другие командные операции, которые вы обычно выполняете в терминале. 
+
+Нашими основными задачами будут **сборка _release_-версии проекта**, **сборка _debug_-версии проекта**, **сборка тестов**:
+
+```json
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "bazel-build-debug",
+            "type": "shell",
+            "command": "bazel build //src/main:cpp_app --config=debug ",
+            "group": "build"
+        },
+        {
+            "label": "bazel-build-release",
+            "type": "shell",
+            "command": "bazel build //src/main:cpp_app --config=release ",
+            "group": "build"
+        },
+        {
+            "label": "bazel-test",
+            "type": "shell",
+            "command": "bazel test //src/test:test --test_output=all --nocache_test_results || [ $? -eq 3 ] && exit 0", 
+            "group": "test"
+        }
+    ]
+}
+```
+
+Если у вас возникло недопонимание последней части команды сбоки тестов:
+
+В **bash** у каждой команды, как и у каждой программы на C++, есть **код возврата**. Все коды возврата кроме `0` обозначают некоторую ошибку. Код возврата **последней выполненной команды** содержится в переменной `$?`, а оператор `||` производит выполнение **следующей за ним команды** **только в том случае**, если **команда перед ним** вернула НЕ `0`. Его противоположность - оператор `&&`, который выполняет следующую команду только в случае успешного завершения предыдущей. `bazel test` возвращает `0`, если все тесты пройдены успешно. Если же сам запуск тестов произведён успешно, но некоторые тесты не прошли, то `bazel test` вернёт код `3`, который будет восприниматься средой как краш самой команды `bazel test`, за счёт чего не запустится скомпилированный файл с тестами. Поэтому и была написана такая конструкция, чтобы это предотвратить и в случае успешного выполнения команды, но провала некоторых тестов всё равно запустить скомпилированный файл.  
+
+Подробнее о **tasks.json** здесь: [tasks-json](https://code.visualstudio.com/docs/editor/tasks)
+
+### launch.json
+ 
+**launch.json** используется для настройки и управления конфигурациями сборки и отладки вашего проекта. Этот файл позволяет настроить, каким образом VSCode будет запускать и отлаживать ваше приложение. 
+
+```json
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Bazel Debug",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bazel-bin/src/main/cpp_app",
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "externalConsole": false,  
+            "MIMode": "gdb",
+            "miDebuggerArgs": "-q -ex quit; wait() { fg >/dev/null; }; /bin/gdb -q --interpreter=mi",
+            "preLaunchTask": "bazel-build-debug"
+        },
+        {
+            "name": "Bazel Release",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bazel-bin/src/main/cpp_app",
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerArgs": "-q -ex quit; wait() { fg >/dev/null; }; /bin/gdb -q --interpreter=mi",
+            "preLaunchTask": "bazel-build-release" 
+        },
+        {
+            "name": "Bazel Test",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bazel-bin/src/test/test",
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "externalConsole": false,
+            "miDebuggerArgs": "-q -ex quit; wait() { fg >/dev/null; }; /bin/gdb -q --interpreter=mi",
+            "preLaunchTask": "bazel-test"
+        }
+    ]
+}
+```
+
+Здесь прописаны 3 конфигурации, которые запускают исполняемые файлы того, что соберут соответсвующие задачи в **tasks.json**. 
+
+Label задачи, которая выполняется перед запуском, прописан в поле **"preLaunchTask"**. 
+
+В поле **"miDebuggerArgs"** прописаны аргументы, которые позволяют скрыть системные сообщения отладчика. 
+
+Поле **"externalConsole"** содержит булево значение и в случае `true` запускает прописанный в поле **"program"** исполняемый файл во внешнем терминале. В противном случае, файл исполняется во встроенном терминале VSCode.
+
+Все написанные конфигурации можно запустить в разделе **Run and Debug** *(Ctrl + Shift + D)* кнопкой `F5`.
+
+Подробнее о **launch.json** здесь: [launch-json](https://code.visualstudio.com/docs/editor/debugging)
+
+Подробнее о **launch.json** в контексте C/C++ сборки здесь: [launch-json-cpp](https://code.visualstudio.com/docs/cpp/launch-json-reference)
+
+### settings.json
+
+**settings.json** представляет собой конфигурационный файл, в котором хранятся пользовательские и рабочие настройки редактора 
+
+```json
+{
+    "C_Cpp.default.cppStandard": "c++20",
+
+    "telemetry.telemetryLevel": "off",
+
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true,
+    "editor.formatOnSave": false,
+
+    "workbench.colorTheme": "Default Dark+",
+    "workbench.iconTheme": "vscode-icons",
+    "editor.fontFamily": "Consolas",
+    "editor.fontSize": 15,
+
+    "workbench.editor.highlightModifiedTabs": true,
+    
+    "files.trimFinalNewlines": true,
+
+    "explorer.sortOrder": "default",
+
+    "files.autoSave": "onFocusChange",
+
+    "files.exclude": {
+        "**/.git": true,
+        "**/.github": true,
+        "**/.DS_Store": true
+    }
+}
+```
+
+Подробнее о **settings.json** здесь: [settings-json](https://code.visualstudio.com/docs/getstarted/settings)
+
+---
+
+На этом настройка завершена.

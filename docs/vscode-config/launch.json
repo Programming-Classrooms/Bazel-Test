@@ -33,7 +33,7 @@
             "name": "Bazel Test",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/bazel-bin/src/test/test",
+            "program": "${workspaceFolder}/bazel-bin/src/tests/tests",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
