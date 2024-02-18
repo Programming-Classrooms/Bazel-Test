@@ -4,8 +4,8 @@
 
 int main()
 {
-    Fraction f1(3, 5), f2(2, 5);
-    std::cout << f1 << " + " << f2 << " = " << f1 - f2 << "\n";
+    Fraction f1(3, 5), f2(2, 6);
+    std::cout << f1 << " + " << f2 << " = " << f1 + f2 << "\n";
 
     return 0;
 }
