@@ -8,12 +8,14 @@ jobs:
   list-root-changed-dirs:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
-      with:
-        fetch-depth: 0 # Необходимо для получения истории изменений
+    - uses: actions/checkout@v4
+    - uses: bazelbuild/setup-bazelisk@v3
 
     - name: List root changed directories
       run: |
         git fetch origin ${{ github.base_ref }}
         git diff --name-only origin/${{ github.base_ref }} ${{ github.sha }} | cut -d'/' -f1 | uniq
+
+    - name: Bazel build release
+      run: |
+        bazel build //src/main:cpp_app --config=release
