@@ -1,19 +1,19 @@
-name: List Changed Directories
+name: List Root Changed Directories
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-  
+
 jobs:
-  list-changed-dirs:
+  list-root-changed-dirs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
       with:
-        fetch-depth: 0 # Это нужно для получения истории изменений
+        fetch-depth: 0 # Необходимо для получения истории изменений
 
-    - name: List all changed directories
+    - name: List root changed directories
       run: |
         git fetch origin ${{ github.base_ref }}
-        git diff --name-only origin/${{ github.base_ref }} ${{ github.sha }} | xargs -L1 dirname | uniq
+        git diff --name-only origin/${{ github.base_ref }} ${{ github.sha }} | cut -d'/' -f1 | uniq
