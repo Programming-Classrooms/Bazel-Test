@@ -16,7 +16,7 @@
         {
             "label": "bazel-test",
             "type": "shell",
-            "command": "bazel test //src/test:test --test_output=all --nocache_test_results || [ $? -eq 3 ] && exit 0", 
+            "command": "bazel test //src/tests:all --test_output=all --nocache_test_results || [ $? -eq 3 ] && exit 0", 
             "group": "test"
         }
     ]

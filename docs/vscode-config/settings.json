@@ -6,9 +6,12 @@
     "editor.formatOnSave": false,
 
     "workbench.colorTheme": "Default Dark+",
-    "workbench.iconTheme": "vscode-icons",
     "editor.fontFamily": "Consolas",
-    "editor.fontSize": 15,
+    "editor.fontSize": 13,
+
+    "code-runner.runInTerminal" : true,
+    "code-runner.showExecutionMessage": false,
+    "code-runner.clearPreviousOutput": true,
 
     "workbench.editor.highlightModifiedTabs": true,
     
@@ -18,11 +21,5 @@
 
     "files.autoSave": "onFocusChange",
 
-    "C_Cpp.default.cppStandard": "c++20",
-
-    "files.exclude": {
-        "**/.git": true,
-        "**/.github": true,
-        "**/.DS_Store": true
-    }
+    "C_Cpp.default.cppStandard": "c++20"
 }

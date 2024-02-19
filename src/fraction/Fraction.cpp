@@ -1,6 +1,7 @@
 #include <utility>
 #include <numeric>
 #include <stdexcept>
+
 #include "Fraction.hpp"
 
 // Конструктор по умолчанию

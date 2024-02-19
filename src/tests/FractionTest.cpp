@@ -1,4 +1,4 @@
-#include "src/fraction/Fraction.hpp"
+#include "../fraction/Fraction.hpp"
 #include <stdexcept>
 #include <gtest/gtest.h>
 

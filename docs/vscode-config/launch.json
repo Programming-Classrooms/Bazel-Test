@@ -9,10 +9,17 @@
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
-            "environment": [],
             "externalConsole": false,  
             "MIMode": "gdb",
             "miDebuggerArgs": "-q -ex quit; wait() { fg >/dev/null; }; /bin/gdb -q --interpreter=mi",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": false
+                }
+            ],
             "preLaunchTask": "bazel-build-debug"
         },
         {
@@ -38,6 +45,7 @@
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "externalConsole": false,
+            "MIMode": "gdb",
             "miDebuggerArgs": "-q -ex quit; wait() { fg >/dev/null; }; /bin/gdb -q --interpreter=mi",
             "preLaunchTask": "bazel-test"
         }

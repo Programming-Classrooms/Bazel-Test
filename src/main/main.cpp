@@ -1,6 +1,6 @@
 #include <iostream>
 #include <stdexcept>
-#include "src/fraction/Fraction.hpp"
+#include "../fraction/Fraction.hpp"
 
 int main()
 {
