@@ -8,10 +8,10 @@
 sudo apt update && sudo apt install gcc g++ clang -y
 ```
 
-Также установим утилиты `apt-transport-https`, `curl`, `gnupg` для работы с сетью:
+Также установим утилиты `curl`, `apt-transport-https`, `gnupg` для работы с сетью:
 
 ```sh
-sudo apt apt-transport-https curl gnupg -y
+sudo apt install curl apt-transport-https gnupg -y
 ```
 
 ## 2. Установка Bazel
@@ -336,7 +336,7 @@ bazel test //src/tests:all
         {
             "label": "bazel-test",
             "type": "shell",
-            "command": "bazel test //src/test:test --test_output=all --nocache_test_results || [ $? -eq 3 ] && exit 0", 
+            "command": "bazel test //src/test:all --test_output=all --nocache_test_results || [ $? -eq 3 ] && exit 0", 
             "group": "test"
         }
     ]
