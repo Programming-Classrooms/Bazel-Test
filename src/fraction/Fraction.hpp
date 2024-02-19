@@ -21,7 +21,7 @@ public:
     // Getters
     int getNumerator() const;
     int getDenominator() const;
-
+    
     // Сокращение дроби
     Fraction simplify() const;
 

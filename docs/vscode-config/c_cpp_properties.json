@@ -3,12 +3,10 @@
         {
             "name": "Mac",
             "includePath": [
-                /*   "/**" - means recursive search     */
                 "${workspaceFolder}/bazel-bin/**",
                 "${workspaceFolder}/bazel-out/**",
                 "${workspaceFolder}/bazel-${workspaceFolderBasename}/**"
             ],
-            "defines": [],
             "intelliSenseMode": "${default}",
             "cppStandard": "c++20"
         }
