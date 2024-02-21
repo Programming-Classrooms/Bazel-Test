@@ -3,13 +3,13 @@
 Thumbs.db
 
 # VS Code
-.vscode/*
+.vscode/
 
 # Bazel
 bazel-*
 _bazel
 MODULE.bazel.lock
-.cache/
+.cache
 
 # Prerequisites
 *.d
