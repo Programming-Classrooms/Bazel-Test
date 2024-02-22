@@ -5,6 +5,7 @@
 # For more details, please check https://github.com/bazelbuild/bazel/issues/18958
 ###############################################################################
 
+"""This module defines the Bazel module and dependencies for the cpp_app project."""
 
 module(
     name = "cpp_app",

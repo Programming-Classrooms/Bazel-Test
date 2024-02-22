@@ -5,45 +5,88 @@
 
 class Fraction {
 private:
-    int numerator;
-    int denominator;
+    uint64_t numerator; // Числитель
+    uint64_t denominator; // Знаменатель
+    bool negative; // Знак дроби (false = '+'  |  true = '-')
 
-public:
-    // Конструктор по умолчанию
-    Fraction(int num = 0, int denom = 1);
-
-    // Конструктор копирования
-    Fraction(const Fraction& other);
-
-    // Конструктор перемещения
-    Fraction(Fraction&& other) noexcept;
-
-    // Getters
-    int getNumerator() const;
-    int getDenominator() const;
-    
     // Сокращение дроби
-    Fraction simplify() const;
+    void reduce();
+    
+public:
+    // Конструкторы
+    Fraction();
+    Fraction(const uint64_t& numeratorVal, const uint64_t& denominatorVal, const bool& negativeVal = false);
+    Fraction(const Fraction& origin);
+    Fraction(Fraction&& rhs) noexcept;
+    explicit Fraction(const int64_t& intVal);
+    ~Fraction();
+
+    // Геттеры
+    uint64_t getNum() const;
+    uint64_t getDen() const;
+    bool isNegative() const;
+
+    // Сеттеры
+    void setNum(const uint64_t& numVal);
+    void setDen(const uint64_t& denVal);
+    void setNegative(const bool& negativeVal);
 
     // Перегрузка унарных арифметических операторов
+    Fraction operator++();
+    Fraction operator++(int);
+    Fraction operator--();
+    Fraction operator--(int);
     Fraction operator-() const;
-
-    // Перегрузка арифметических операторов
-    Fraction operator+(const Fraction& other) const;
-    Fraction operator-(const Fraction& other) const; 
-    Fraction operator*(const Fraction& other) const;
-    Fraction operator/(const Fraction& other) const;
-
-    // Перегрузка оператора ~
     Fraction operator~() const;
 
-    // Перегрузка оператора присваивания
-    Fraction& operator=(const Fraction& other);
-    Fraction& operator=(Fraction&& other) noexcept;
+    // Перегрузка арифметических операторов
+    Fraction operator+(const Fraction& rhs) const;
+    Fraction operator-(const Fraction& rhs) const; 
+    Fraction operator*(const Fraction& rhs) const;
+    Fraction operator/(const Fraction& rhs) const;
 
-    // Перегрузка операторов сравнения
-    bool operator==(const Fraction& other);
-    bool operator<(const Fraction& other);
+    Fraction operator+(const int64_t& rhs) const;
+    Fraction operator-(const int64_t& rhs) const;
+    Fraction operator*(const int64_t& rhs) const;
+    Fraction operator/(const int64_t& rhs) const;
+
+    // double operator+(const double& rhs) const;
+    // double operator-(const double& rhs) const;
+    // double operator*(const double& rhs) const;
+    // double operator/(const double& rhs) const;
+
+    // friend Fraction operator+(const int64_t& lhs, const Fraction& rhs);
+    // friend Fraction operator-(const int64_t& lhs, const Fraction& rhs);
+    // friend Fraction operator*(const int64_t& lhs, const Fraction& rhs);
+    // friend Fraction operator/(const int64_t& lhs, const Fraction& rhs);
+
+    // Перегрузка оператора присваивания
+    Fraction& operator=(const Fraction& rhs);
+    Fraction& operator=(Fraction&& rhs) noexcept;
+
+    Fraction& operator+=(const Fraction& rhs);
+    Fraction& operator-=(const Fraction& rhs);
+    Fraction& operator*=(const Fraction& rhs);
+    Fraction& operator/=(const Fraction& rhs);
+
+    // Fraction& operator+=(const int64_t& rhs);
+    // Fraction& operator-=(const int64_t& rhs);
+    // Fraction& operator*=(const int64_t& rhs);
+    // Fraction& operator/=(const int64_t& rhs);
+
+    // Перегрузки операторов сравнения
+    bool operator==(const Fraction& rhs) const;
+    bool operator!=(const Fraction& rhs) const;
+    bool operator<(const Fraction& rhs) const;
+    bool operator>(const Fraction& rhs) const;
+    bool operator<=(const Fraction& rhs) const;
+    bool operator>=(const Fraction& rhs) const;
+
+    // Перегрузки операротов преобразования типов
+    explicit operator std::string() const;
+    explicit operator int64_t() const;
+    explicit operator double() const;
+    explicit operator float() const;
 
     // Дружественный оператор вывода
     friend std::ostream& operator<<(std::ostream& out, const Fraction& f);
