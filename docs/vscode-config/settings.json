@@ -1,0 +1,25 @@
+{
+    "telemetry.telemetryLevel": "off",
+
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true,
+    "editor.formatOnSave": false,
+
+    "workbench.colorTheme": "Default Dark+",
+    "editor.fontFamily": "Consolas",
+    "editor.fontSize": 13,
+
+    "code-runner.runInTerminal" : true,
+    "code-runner.showExecutionMessage": false,
+    "code-runner.clearPreviousOutput": true,
+
+    "workbench.editor.highlightModifiedTabs": true,
+    
+    "files.trimFinalNewlines": true,
+
+    "explorer.sortOrder": "default",
+
+    "files.autoSave": "onFocusChange",
+
+    "C_Cpp.default.cppStandard": "c++20"
+}
