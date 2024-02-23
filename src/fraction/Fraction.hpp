@@ -5,9 +5,9 @@
 
 class Fraction {
 private:
-    uint64_t numerator; // Числитель
+    uint64_t numerator;   // Числитель
     uint64_t denominator; // Знаменатель
-    bool negative; // Знак дроби (false = '+'  |  true = '-')
+    bool negative;        // Знак дроби (false = '+'  |  true = '-')
 
     // Сокращение дроби
     void reduce();
@@ -31,36 +31,59 @@ public:
     void setDen(const uint64_t& denVal);
     void setNegative(const bool& negativeVal);
 
-    // Перегрузка унарных арифметических операторов
-    Fraction operator++();
+    // Перегрузки операротов преобразования типов
+    explicit operator std::string() const;
+    explicit operator int64_t() const;
+    explicit operator double() const;
+    explicit operator float() const;
+
+    // Перегрузки унарных арифметических операторов
+    Fraction& operator++();
     Fraction operator++(int);
-    Fraction operator--();
+    Fraction& operator--();
     Fraction operator--(int);
+
     Fraction operator-() const;
     Fraction operator~() const;
 
-    // Перегрузка арифметических операторов
+    // Перегрузки бинарных арифметических операторов
     Fraction operator+(const Fraction& rhs) const;
     Fraction operator-(const Fraction& rhs) const; 
     Fraction operator*(const Fraction& rhs) const;
     Fraction operator/(const Fraction& rhs) const;
+
+    Fraction operator+(const int& rhs) const;
+    Fraction operator-(const int& rhs) const;
+    Fraction operator*(const int& rhs) const;
+    Fraction operator/(const int& rhs) const;
 
     Fraction operator+(const int64_t& rhs) const;
     Fraction operator-(const int64_t& rhs) const;
     Fraction operator*(const int64_t& rhs) const;
     Fraction operator/(const int64_t& rhs) const;
 
-    // double operator+(const double& rhs) const;
-    // double operator-(const double& rhs) const;
-    // double operator*(const double& rhs) const;
-    // double operator/(const double& rhs) const;
+    double operator+(const double& rhs) const;
+    double operator-(const double& rhs) const;
+    double operator*(const double& rhs) const;
+    double operator/(const double& rhs) const;
 
-    // friend Fraction operator+(const int64_t& lhs, const Fraction& rhs);
-    // friend Fraction operator-(const int64_t& lhs, const Fraction& rhs);
-    // friend Fraction operator*(const int64_t& lhs, const Fraction& rhs);
-    // friend Fraction operator/(const int64_t& lhs, const Fraction& rhs);
+    friend Fraction operator+(const int& lhs, const Fraction& rhs);
+    friend Fraction operator-(const int& lhs, const Fraction& rhs);
+    friend Fraction operator*(const int& lhs, const Fraction& rhs);
+    friend Fraction operator/(const int& lhs, const Fraction& rhs);
 
-    // Перегрузка оператора присваивания
+    friend Fraction operator+(const int64_t& lhs, const Fraction& rhs);
+    friend Fraction operator-(const int64_t& lhs, const Fraction& rhs);
+    friend Fraction operator*(const int64_t& lhs, const Fraction& rhs);
+    friend Fraction operator/(const int64_t& lhs, const Fraction& rhs);
+
+    friend double operator+(const double& lhs, const Fraction& rhs);
+    friend double operator-(const double& lhs, const Fraction& rhs);
+    friend double operator*(const double& lhs, const Fraction& rhs);
+    friend double operator/(const double& lhs, const Fraction& rhs);
+
+
+    // Перегрузки операторов присваивания
     Fraction& operator=(const Fraction& rhs);
     Fraction& operator=(Fraction&& rhs) noexcept;
 
@@ -69,10 +92,10 @@ public:
     Fraction& operator*=(const Fraction& rhs);
     Fraction& operator/=(const Fraction& rhs);
 
-    // Fraction& operator+=(const int64_t& rhs);
-    // Fraction& operator-=(const int64_t& rhs);
-    // Fraction& operator*=(const int64_t& rhs);
-    // Fraction& operator/=(const int64_t& rhs);
+    Fraction& operator+=(const int64_t& rhs);
+    Fraction& operator-=(const int64_t& rhs);
+    Fraction& operator*=(const int64_t& rhs);
+    Fraction& operator/=(const int64_t& rhs);
 
     // Перегрузки операторов сравнения
     bool operator==(const Fraction& rhs) const;
@@ -81,12 +104,6 @@ public:
     bool operator>(const Fraction& rhs) const;
     bool operator<=(const Fraction& rhs) const;
     bool operator>=(const Fraction& rhs) const;
-
-    // Перегрузки операротов преобразования типов
-    explicit operator std::string() const;
-    explicit operator int64_t() const;
-    explicit operator double() const;
-    explicit operator float() const;
 
     // Дружественный оператор вывода
     friend std::ostream& operator<<(std::ostream& out, const Fraction& f);
